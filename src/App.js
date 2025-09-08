@@ -1,14 +1,13 @@
+// src/App.js
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import html2pdf from "html2pdf.js";
-
 
 function Summary({ text, limit = 300 }) {
   const [expanded, setExpanded] = useState(false);
   if (!text) return null;
   const isLong = text.length > limit;
   const displayText = expanded || !isLong ? text : text.slice(0, limit) + "...";
-
 
   return (
     <div className="summary">
@@ -22,18 +21,16 @@ function Summary({ text, limit = 300 }) {
   );
 }
 
-
 function SnippetOneLine({ text }) {
   const [expanded, setExpanded] = useState(false);
   if (!text) return null;
-
 
   return (
     <div>
       {!expanded ? (
         <div className="one-line-row">
           <div className="one-line-text">{text}</div>
-          <button className="toggle-btn small" onClick={() => setExpanded(true)}> 
+          <button className="toggle-btn small" onClick={() => setExpanded(true)}>
             Show more
           </button>
         </div>
@@ -49,7 +46,6 @@ function SnippetOneLine({ text }) {
   );
 }
 
-
 export default function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -58,18 +54,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [country, setCountry] = useState("US");
   const [uiLang, setUiLang] = useState("en-US");
-
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const raw = localStorage.getItem("ai_recent_searches");
     if (raw) setRecent(JSON.parse(raw));
   }, []);
 
-
   useEffect(() => {
     localStorage.setItem("ai_recent_searches", JSON.stringify(recent));
   }, [recent]);
-
 
   const addToRecent = (q, results) => {
     const entry = {
@@ -81,26 +75,54 @@ export default function App() {
     setRecent(filtered);
   };
 
+  // set your Railway backend here (ensure it includes https://)
+  const API_BASE =
+    process.env.REACT_APP_API_URL || "https://backend-production-ai.up.railway.app";
 
   const handleSearch = async (q = null) => {
-    const searchQuery = q ?? query;
+    const searchQuery = (q ?? query)?.trim();
     if (!searchQuery) return;
+    setErrorMessage("");
     try {
       setLoading(true);
-      const res = await fetch(
-    `https://backend-production-59f2.up.railway.app/search_summary?q=${encodeURIComponent(searchQuery)}&country=${country}&ui_lang=${uiLang}`
-    );
+
+      const url =
+        `${API_BASE.replace(/\/$/, "")}/search_summary` +
+        `?q=${encodeURIComponent(searchQuery)}` +
+        `&country=${encodeURIComponent(country)}` +
+        `&ui_lang=${encodeURIComponent(uiLang)}`;
+
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+
+      // If server responded with non-2xx, read body as text for debugging
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "");
+        throw new Error(`Server returned ${res.status}: ${bodyText || res.statusText}`);
+      }
+
+      // Make sure server returned JSON; if not, read and show the HTML/text
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text().catch(() => "");
+        throw new Error("Expected JSON but server returned HTML/error:\n\n" + text.slice(0, 2000));
+      }
+
       const data = await res.json();
       setResults(data.results || []);
       setCombinedSummary(data.combined_summary || "");
       addToRecent(searchQuery, data.results || []);
     } catch (err) {
       console.error("Error fetching:", err);
+      setErrorMessage(err.message || "Network error");
+      setResults([]);
+      setCombinedSummary("");
     } finally {
       setLoading(false);
     }
   };
-
 
   const handleRecentClick = (entry) => {
     setQuery(entry.query);
@@ -108,11 +130,9 @@ export default function App() {
     setRecent((r) => [entry, ...r.filter((x) => x.query !== entry.query)].slice(0, 8));
   };
 
-
   const handleExportPdf = () => {
     const element = document.getElementById("print-area");
     if (!element) return alert("Nothing to export");
-
 
     const opt = {
       margin: 12,
@@ -122,10 +142,8 @@ export default function App() {
       jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
     };
 
-
     html2pdf().set(opt).from(element).save();
   };
-
 
   return (
     <div className="app-container">
@@ -137,7 +155,6 @@ export default function App() {
         </div>
         <div className="avatar" />
       </aside>
-
 
       <main className="main-content">
         {/* Centered header column: title, selects, search, export */}
@@ -190,7 +207,6 @@ export default function App() {
             </label>
           </div>
 
-
           {/* increased gap between dropdown and search */}
           <div
             className="search-bar"
@@ -216,6 +232,12 @@ export default function App() {
             </button>
           </div>
 
+          {/* display error message if any */}
+          {errorMessage && (
+            <div style={{ color: "#fca5a5", marginTop: 8, maxWidth: 820, textAlign: "center", whiteSpace: "pre-wrap" }}>
+              {errorMessage}
+            </div>
+          )}
 
           {/* increase gap between search and export buttons and center them */}
           <div className="export-buttons" style={{ marginTop: 22, display: "flex", gap: 16, justifyContent: "center" }}>
@@ -226,17 +248,15 @@ export default function App() {
           </div>
         </header>
 
-
         <div className="quick-results" style={{ marginTop: 20, display: "flex", justifyContent: "center" }}>
           {loading ? (
             <div className="thinking">
               Thinking<span className="dots" />
             </div>
-          ) : results.length === 0 ? (
+          ) : results.length === 0 && !errorMessage ? (
             <div className="no-results">No results yet — run a search.</div>
           ) : null}
         </div>
-
 
         {combinedSummary && (
           <div id="print-area" className="combined-summary" style={{ marginTop: 26 }}>
@@ -250,7 +270,6 @@ export default function App() {
           </div>
         )}
 
-
         <div className="results" style={{ marginTop: 26 }}>
           {results.map((item, idx) => (
             <article key={idx} className="result-card">
@@ -259,7 +278,7 @@ export default function App() {
               </a>
               <p className="result-description">{item.description}</p>
               <div style={{ marginTop: 10 }}>
-                <SnippetOneLine text={item.description || "No summary available."} />
+                <SnippetOneLine text={item.description || item.content_preview || "No summary available."} />
                 <div style={{ marginTop: 8 }}>
                   <a href={item.url} target="_blank" rel="noreferrer" style={{ color: "#f43f5e", fontSize: 13 }}>
                     {item.url}
@@ -269,7 +288,6 @@ export default function App() {
             </article>
           ))}
         </div>
-
 
         <section className="recent-searches" style={{ marginTop: 34 }}>
           <h2>Recent Searches</h2>
@@ -283,7 +301,6 @@ export default function App() {
             ))}
           </div>
         </section>
-
 
         <footer className="footer">Powered by advanced AI research capabilities</footer>
       </main>
