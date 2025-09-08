@@ -88,7 +88,7 @@ export default function App() {
     try {
       setLoading(true);
       const res = await fetch(
-    `https://non-prev-wool-territory.trycloudflare.com/search_summary?q=${encodeURIComponent(searchQuery)}&country=${country}&ui_lang=${uiLang}`
+    `backend-production-59f2.up.railway.app/search_summary?q=${encodeURIComponent(searchQuery)}&country=${country}&ui_lang=${uiLang}`
     );
       const data = await res.json();
       setResults(data.results || []);
