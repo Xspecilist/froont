@@ -33,7 +33,7 @@ function SnippetOneLine({ text }) {
       {!expanded ? (
         <div className="one-line-row">
           <div className="one-line-text">{text}</div>
-          <button className="toggle-btn small" onClick={() => setExpanded(true)}>
+          <button className="toggle-btn small" onClick={() => setExpanded(true)}> 
             Show more
           </button>
         </div>
@@ -88,7 +88,7 @@ export default function App() {
     try {
       setLoading(true);
       const res = await fetch(
-    `http://localhost:8000/search_summary?q=${encodeURIComponent(searchQuery)}&country=${country}&ui_lang=${uiLang}`
+    `https://non-prev-wool-territory.trycloudflare.com/search_summary?q=${encodeURIComponent(searchQuery)}&country=${country}&ui_lang=${uiLang}`
     );
       const data = await res.json();
       setResults(data.results || []);
